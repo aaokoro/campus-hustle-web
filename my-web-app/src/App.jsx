@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './App.css'
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState('All')
+  const featuredServicesScrollRef = useRef(null)
 
   const handleGetStarted = () => {
     alert('Start Your Free Shop Now — this would navigate to the signup/onboarding flow.')
@@ -27,6 +28,119 @@ function App() {
 
   const filters = ['All', 'Top Sellers', 'Clothing', 'Tech', 'Art', 'Food']
   const priceFilters = ['Recently Added', 'Services', 'Under $10-20', 'Above $20']
+
+  // Scroll featured services: start at end, then animate to first card
+  // Also handle manual scroll - when user scrolls to end, auto-scroll to beginning
+  useEffect(() => {
+    let animationTimeout = null
+    let hasAnimated = false
+    let isScrollingBack = false
+    
+    const scrollToBeginning = () => {
+      if (featuredServicesScrollRef.current && !isScrollingBack) {
+        const scrollContainer = featuredServicesScrollRef.current
+        isScrollingBack = true
+        
+        // Smoothly scroll to the beginning
+        scrollContainer.style.scrollBehavior = 'smooth'
+        scrollContainer.scrollLeft = 0
+        
+        // Reset flag after animation completes (approximately 1 second for smooth scroll)
+        setTimeout(() => {
+          isScrollingBack = false
+        }, 1000)
+      }
+    }
+    
+    const initializeAndAnimate = () => {
+      if (featuredServicesScrollRef.current && !hasAnimated) {
+        const scrollContainer = featuredServicesScrollRef.current
+        const scrollWidth = scrollContainer.scrollWidth
+        const clientWidth = scrollContainer.clientWidth
+        
+        // Only proceed if content is wider than container
+        if (scrollWidth <= clientWidth) {
+          return
+        }
+        
+        // Calculate maximum scroll position
+        const maxScroll = scrollWidth - clientWidth
+        
+        if (maxScroll > 0) {
+          // Card width is 320px + 16px gap = 336px
+          // To match the image: show cards 4, 5, 6 fully with a partial peek of card 3 on the left
+          // Scroll back by approximately 2 cards minus a peek (about 60px of card 3 visible)
+          const cardWidth = 336 // 320px card + 16px gap
+          const peekAmount = 60 // Show about 60px of card 3 on the left
+          const scrollPosition = maxScroll - (cardWidth * 2 - peekAmount)
+          
+          // First, set scroll to show cards 3-6 (with card 3 partially visible) immediately (no animation)
+          scrollContainer.style.scrollBehavior = 'auto'
+          scrollContainer.scrollLeft = Math.max(0, scrollPosition)
+          
+          // Force a reflow to ensure the scroll position is set
+          void scrollContainer.offsetHeight
+          
+          hasAnimated = true
+          
+          // Clear any existing timeout
+          if (animationTimeout) {
+            clearTimeout(animationTimeout)
+          }
+          
+          // Then, after a brief delay, smoothly scroll to the beginning
+          animationTimeout = setTimeout(() => {
+            scrollToBeginning()
+          }, 1000) // Wait 1 second before starting the animation
+        }
+      }
+    }
+    
+    // Handle manual scroll events
+    const handleScroll = () => {
+      if (featuredServicesScrollRef.current && !isScrollingBack) {
+        const scrollContainer = featuredServicesScrollRef.current
+        const scrollWidth = scrollContainer.scrollWidth
+        const clientWidth = scrollContainer.clientWidth
+        const scrollLeft = scrollContainer.scrollLeft
+        const maxScroll = scrollWidth - clientWidth
+        
+        // Check if user has scrolled to the end (within 5px threshold)
+        if (scrollLeft >= maxScroll - 5 && maxScroll > 0) {
+          // Small delay to ensure user has finished scrolling
+          clearTimeout(animationTimeout)
+          animationTimeout = setTimeout(() => {
+            scrollToBeginning()
+          }, 300)
+        }
+      }
+    }
+    
+    // Try multiple times to ensure it works after all images/content are loaded
+    requestAnimationFrame(() => {
+      initializeAndAnimate()
+    })
+    
+    setTimeout(initializeAndAnimate, 200)
+    setTimeout(initializeAndAnimate, 500)
+    setTimeout(initializeAndAnimate, 1000)
+    
+    // Add scroll event listener
+    const scrollContainer = featuredServicesScrollRef.current
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll)
+    }
+    
+    // Cleanup
+    return () => {
+      if (animationTimeout) {
+        clearTimeout(animationTimeout)
+      }
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll)
+      }
+    }
+  }, [])
 
   const shops = [
     {
@@ -81,25 +195,23 @@ function App() {
           {/* Navigation Links */}
           <nav className="main-nav">
             <a href="#home" className="nav-link active">
-              <svg className="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="0" y="6" width="24" height="30" rx="6" fill="#FFFFFF"/>
-                <path d="M6 9c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#3C75EE" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M8 14c1 1.333 2.533 2.133 3.333 2.133 0.8 0 2.333-0.8 3.333-2.133" stroke="#3C75EE" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
               HOME
             </a>
             <a href="#marketplace" className="nav-link">
-              <svg className="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="0" y="6" width="24" height="30" rx="6" fill="#3C75EE"/>
-                <path d="M6 9c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M8 14c1 1.333 2.533 2.133 3.333 2.133 0.8 0 2.333-0.8 3.333-2.133" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
               MARKETPLACE
             </a>
           </nav>
 
           {/* Join Community Button */}
-          <button className="join-beta-btn">Join the Community</button>
+          <a 
+            href="https://groupme.com/join_group/108744842/LQNS5QsZ" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="join-beta-btn"
+            style={{ textDecoration: 'none', display: 'inline-block' }}
+          >
+            Join the Community
+          </a>
         </div>
       </header>
 
@@ -176,243 +288,183 @@ function App() {
 
           {/* Product Cards Grid */}
           <div className="figma-grid">
-            {/* Card 1 - Duplicate of Card 1 */}
+            {/* Card 1 - JoGua DESIGNS */}
             <div className="figma-card">
-              <div className="new-badge">New</div>
               <div className="card-image">
-                <img src="/images/frames/Frame 1000005785.png" alt="Product" />
-                <div className="overlay-buttons">
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#4B5563" strokeWidth="2"/>
-                      <circle cx="12" cy="12" r="3" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0h9" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
+                <img src="/images/products/IMG_2493.jpeg" alt="JoGua DESIGNS" />
+                <div className="product-hover-overlay">
+                  <div className="hover-overlay-text">
+                    Store run by JoGua from<br />
+                    Howard University
+                  </div>
+                  <div className="hover-overlay-buttons">
+                    <button className="view-shop-btn">View Shop</button>
+                    <button className="add-to-cart-btn">Add to Cart</button>
+                  </div>
                 </div>
               </div>
               <div className="card-content">
                 <div className="content-header">
                   <div className="product-info">
-                    <div className="creator">Crafted by Kemi</div>
-                    <div className="product-title">Custom Handmade Bracelets</div>
+                    <div className="creator">JoGua DESIGNS</div>
+                    <div className="product-title">Art & Design Services</div>
                   </div>
-                  <div className="category-tag">Services</div>
+                  <div className="category-rating-container">
+                    <div className="category-tag">Art</div>
+                  </div>
                 </div>
                 <div className="content-footer">
-                  <div className="price">$20/hour</div>
-                  <div className="rating">
-                    <svg width="20" height="19" viewBox="0 0 24 24" fill="#FACC15">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    </svg>
-                    <span>4.9</span>
-                  </div>
                 </div>
-                <button className="buy-now-btn" onClick={handleShopNow}>Buy Now</button>
               </div>
             </div>
 
-            {/* Card 5 - Duplicate of Card 2 */}
-            <div className="figma-card featured">
-              <div className="featured-badge">Featured</div>
-              <div className="card-image">
-                <img src="/images/misc/image (1).png" alt="Product" />
-                <div className="overlay-buttons">
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#4B5563" strokeWidth="2"/>
-                      <circle cx="12" cy="12" r="3" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0h9" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div className="card-content">
-                <div className="content-header">
-                  <div className="product-info">
-                    <div className="creator">Crafted by Kemi</div>
-                    <div className="product-title">Custom Handmade Bracelets</div>
-                  </div>
-                  <div className="category-tag">Tech</div>
-                </div>
-                <div className="content-footer">
-                  <div className="price">From $10</div>
-                  <div className="rating">
-                    <svg width="20" height="19" viewBox="0 0 24 24" fill="#FACC15">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    </svg>
-                    <span>4.9</span>
-                  </div>
-                </div>
-                <button className="buy-now-btn" onClick={handleShopNow}>Buy Now</button>
-              </div>
-            </div>
-
-            {/* Card 6 - Duplicate of Card 3 */}
-            <div className="figma-card featured">
-              <div className="featured-badge">Featured</div>
-              <div className="card-image">
-                <img src="/images/frames/Frame 1000005785 (1).png" alt="Product" />
-                <div className="overlay-buttons">
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#4B5563" strokeWidth="2"/>
-                      <circle cx="12" cy="12" r="3" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0h9" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div className="card-content">
-                <div className="content-header">
-                  <div className="product-info">
-                    <div className="creator">Crafted by Kemi</div>
-                    <div className="product-title">Custom Handmade Bracelets</div>
-                  </div>
-                  <div className="category-tag">Tech</div>
-                </div>
-                <div className="content-footer">
-                  <div className="price">From $10</div>
-                  <div className="rating">
-                    <svg width="20" height="19" viewBox="0 0 24 24" fill="#FACC15">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    </svg>
-                    <span>4.9</span>
-                  </div>
-                </div>
-                <button className="buy-now-btn" onClick={handleShopNow}>Buy Now</button>
-              </div>
-            </div>
-
-            {/* Card 4 - Duplicate of Card 1 */}
+            {/* Card 2 - SKY'STYLES */}
             <div className="figma-card">
-              <div className="new-badge">New</div>
               <div className="card-image">
-                <img src="/images/frames/Frame 1000005785.png" alt="Product" />
-                <div className="overlay-buttons">
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#4B5563" strokeWidth="2"/>
-                      <circle cx="12" cy="12" r="3" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0h9" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
+                <img src="/images/products/IMG_0888.jpeg" alt="SKY'STYLES" />
+                <div className="product-hover-overlay">
+                  <div className="hover-overlay-text">
+                    Store run by SKY from<br />
+                    New York University
+                  </div>
+                  <div className="hover-overlay-buttons">
+                    <button className="view-shop-btn">View Shop</button>
+                    <button className="add-to-cart-btn">Add to Cart</button>
+                  </div>
                 </div>
               </div>
               <div className="card-content">
                 <div className="content-header">
                   <div className="product-info">
-                    <div className="creator">Crafted by Kemi</div>
-                    <div className="product-title">Custom Handmade Bracelets</div>
+                    <div className="creator">SKY'STYLES</div>
+                    <div className="product-title">Fashion & Style</div>
                   </div>
+                  <div className="category-rating-container">
+                    <div className="category-tag">Clothing</div>
+                  </div>
+                </div>
+                <div className="content-footer">
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3 - Stacks By NOB */}
+            <div className="figma-card">
+              <div className="card-image">
+                <img src="/images/products/IMG_5942.jpeg" alt="Stacks By NOB" />
+                <div className="product-hover-overlay">
+                  <div className="hover-overlay-text">
+                    Store run by NOB from<br />
+                    Stanford University
+                  </div>
+                  <div className="hover-overlay-buttons">
+                    <button className="view-shop-btn">View Shop</button>
+                    <button className="add-to-cart-btn">Add to Cart</button>
+                  </div>
+                </div>
+              </div>
+              <div className="card-content">
+                <div className="content-header">
+                  <div className="product-info">
+                    <div className="creator">Stacks By NOB</div>
+                    <div className="product-title">Unique Accessories</div>
+                  </div>
+                  <div className="category-rating-container">
+                    <div className="category-tag">Art</div>
+                  </div>
+                </div>
+                <div className="content-footer">
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4 - CLICK AND CROCHET */}
+            <div className="figma-card">
+              <div className="card-image">
+                <img src="/images/products/IMG_5163.jpeg" alt="CLICK AND CROCHET" />
+                <div className="product-hover-overlay">
+                  <div className="hover-overlay-text">
+                    Store run by Click & Crochet from<br />
+                    University of California
+                  </div>
+                  <div className="hover-overlay-buttons">
+                    <button className="view-shop-btn">View Shop</button>
+                    <button className="add-to-cart-btn">Add to Cart</button>
+                  </div>
+                </div>
+              </div>
+              <div className="card-content">
+                <div className="content-header">
+                  <div className="product-info">
+                    <div className="creator">CLICK AND CROCHET</div>
+                    <div className="product-title">Photography & Crafting</div>
+                  </div>
+                  <div className="category-rating-container">
                   <div className="category-tag">Services</div>
-                </div>
-                <div className="content-footer">
-                  <div className="price">$20/hour</div>
-                  <div className="rating">
-                    <svg width="20" height="19" viewBox="0 0 24 24" fill="#FACC15">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    </svg>
-                    <span>4.9</span>
                   </div>
                 </div>
-                <button className="buy-now-btn" onClick={handleShopNow}>Buy Now</button>
+                <div className="content-footer">
+                </div>
               </div>
             </div>
 
-            {/* Card 5 - Duplicate of Card 2 */}
-            <div className="figma-card featured">
-              <div className="featured-badge">Featured</div>
+            {/* Card 5 - DORM GLOW CO. */}
+            <div className="figma-card">
               <div className="card-image">
-                <img src="/images/misc/image (1).png" alt="Product" />
-                <div className="overlay-buttons">
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#4B5563" strokeWidth="2"/>
-                      <circle cx="12" cy="12" r="3" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0h9" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
+                <img src="/images/products/IMG_4869.jpeg" alt="DORM GLOW CO." />
+                <div className="product-hover-overlay">
+                  <div className="hover-overlay-text">
+                    Store run by DORM GLOW from<br />
+                    Boston University
+                  </div>
+                  <div className="hover-overlay-buttons">
+                    <button className="view-shop-btn">View Shop</button>
+                    <button className="add-to-cart-btn">Add to Cart</button>
+                  </div>
                 </div>
               </div>
               <div className="card-content">
                 <div className="content-header">
                   <div className="product-info">
-                    <div className="creator">Crafted by Kemi</div>
-                    <div className="product-title">Custom Handmade Bracelets</div>
+                    <div className="creator">DORM GLOW CO.</div>
+                    <div className="product-title">Self-Care Products</div>
                   </div>
-                  <div className="category-tag">Tech</div>
+                  <div className="category-rating-container">
+                    <div className="category-tag">Services</div>
+                  </div>
                 </div>
                 <div className="content-footer">
-                  <div className="price">From $10</div>
-                  <div className="rating">
-                    <svg width="20" height="19" viewBox="0 0 24 24" fill="#FACC15">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    </svg>
-                    <span>4.9</span>
-                  </div>
                 </div>
-                <button className="buy-now-btn" onClick={handleShopNow}>Buy Now</button>
               </div>
             </div>
 
-            {/* Card 6 - Duplicate of Card 3 */}
-            <div className="figma-card featured">
-              <div className="featured-badge">Featured</div>
+            {/* Card 6 - DEZISHAKUR */}
+            <div className="figma-card">
               <div className="card-image">
-                <img src="/images/frames/Frame 1000005785 (1).png" alt="Product" />
-                <div className="overlay-buttons">
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#4B5563" strokeWidth="2"/>
-                      <circle cx="12" cy="12" r="3" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
-                  <button className="overlay-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0h9" stroke="#4B5563" strokeWidth="2"/>
-                    </svg>
-                  </button>
+                <img src="/images/products/IMG_3160.jpeg" alt="DEZISHAKUR" />
+                <div className="product-hover-overlay">
+                  <div className="hover-overlay-text">
+                    Store run by DEZISHAKUR from<br />
+                    Spelman College
+                  </div>
+                  <div className="hover-overlay-buttons">
+                    <button className="view-shop-btn">View Shop</button>
+                    <button className="add-to-cart-btn">Add to Cart</button>
+                  </div>
                 </div>
               </div>
               <div className="card-content">
                 <div className="content-header">
                   <div className="product-info">
-                    <div className="creator">Crafted by Kemi</div>
-                    <div className="product-title">Custom Handmade Bracelets</div>
+                    <div className="creator">DEZISHAKUR</div>
+                    <div className="product-title">Lash Lab Services</div>
                   </div>
-                  <div className="category-tag">Tech</div>
+                  <div className="category-rating-container">
+                    <div className="category-tag">Services</div>
+                  </div>
                 </div>
                 <div className="content-footer">
-                  <div className="price">From $10</div>
-                  <div className="rating">
-                    <svg width="20" height="19" viewBox="0 0 24 24" fill="#FACC15">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    </svg>
-                    <span>4.9</span>
-                  </div>
                 </div>
-                <button className="buy-now-btn" onClick={handleShopNow}>Buy Now</button>
               </div>
             </div>
           </div>
@@ -429,11 +481,10 @@ function App() {
           </div>
           
           {/* Services Cards Container */}
-          <div className="featured-services-scroll">
+          <div className="featured-services-scroll" ref={featuredServicesScrollRef}>
             <div className="featured-services-cards">
               {/* Service Card 1 */}
               <div className="featured-service-card">
-                <div className="service-number">1</div>
                 <div className="service-image">
                   <img src="/images/sections/Frame 1000005322.png" alt="Free Digital Shop Setup" />
                 </div>
@@ -445,7 +496,6 @@ function App() {
 
               {/* Service Card 2 */}
               <div className="featured-service-card">
-                <div className="service-number">2</div>
                 <div className="service-image">
                   <img src="/images/sections/Frame 1000005323.png" alt="Premium Analytics & Insights" />
                 </div>
@@ -457,7 +507,6 @@ function App() {
 
               {/* Service Card 3 */}
               <div className="featured-service-card">
-                <div className="service-number">3</div>
                 <div className="service-image">
                   <img src="/images/sections/Frame 1000005322.png" alt="Priority Listing for Paid Users" />
                 </div>
@@ -469,7 +518,6 @@ function App() {
 
               {/* Service Card 4 */}
               <div className="featured-service-card">
-                <div className="service-number">4</div>
                 <div className="service-image">
                   <img src="/images/sections/Frame 1000005322.png" alt="Booking & Scheduling Tools" />
                 </div>
@@ -481,7 +529,6 @@ function App() {
 
               {/* Service Card 5 */}
               <div className="featured-service-card">
-                <div className="service-number">5</div>
                 <div className="service-image">
                   <img src="/images/sections/Frame 1000005323.png" alt="Subleasing & Housing Listings" />
                 </div>
@@ -493,7 +540,6 @@ function App() {
 
               {/* Service Card 6 */}
               <div className="featured-service-card">
-                <div className="service-number">6</div>
                 <div className="service-image">
                   <img src="/images/sections/Frame 1000005323.png" alt="In-App Messaging & Community Features" />
                 </div>
@@ -511,9 +557,21 @@ function App() {
       <section className="made-for-students">
         <div className="made-for-students-container">
           <div className="made-for-students-content">
+            <div className="made-for-students-video">
+              <video
+                width="100%"
+                height="100%"
+                controls
+                autoPlay
+                muted
+                loop
+                playsInline
+              >
+                <source src="/videos/1105.mov" type="video/quicktime" />
+                <source src="/videos/1105.mov" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
             <div className="made-for-students-text">MADE FOR STUDENTS</div>
-            <div className="made-for-students-image">
-              <img src="/images/frames/Frame 1000005787.png" alt="Made for Students" />
             </div>
           </div>
         </div>
@@ -542,79 +600,15 @@ function App() {
       {/* Ready to Launch Banner Section */}
       <section className="launch-banner-section">
         <div className="launch-banner-container">
-          <div className="launch-banner">
-            {/* Decorative Icons */}
-            <div className="launch-banner-icon launch-banner-icon-top-left">
-              <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-                {/* Megaphone - beige/light brown with orange interior */}
-                <path d="M24 12C30 12 35 17 35 23V29C35 30.1 34.1 31 33 31H19C17.9 31 17 30.1 17 29V23C17 17 20 12 24 12Z" fill="#D4A574" stroke="#FFFFFF" strokeWidth="2.5"/>
-                <path d="M20 22C22 22 24 24 24 26V28C24 30 22 32 20 32C18 32 16 30 16 28V26C16 24 18 22 20 22Z" fill="#FFA500"/>
-                <path d="M19 31V37H33V31" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M21 37V41H31V37" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M23 41V45H29V41" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
-                <circle cx="26" cy="23" r="2.5" fill="#FFFFFF"/>
-                {/* Sound waves to the right */}
-                <path d="M38 18C38 18 40 16 42 16" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M38 22C38 22 41 20 44 20" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M38 26C38 26 40 28 42 28" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
-              </svg>
-            </div>
-            
-            <div className="launch-banner-icon launch-banner-icon-top-right">
-              <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-                {/* Lightbulb - yellow with black filament and base */}
-                <ellipse cx="28" cy="20" rx="10" ry="12" fill="#FFD700" stroke="#FFFFFF" strokeWidth="2.5"/>
-                <rect x="24" y="28" width="8" height="6" rx="1" fill="#000000" stroke="#FFFFFF" strokeWidth="2"/>
-                <rect x="25" y="34" width="6" height="2" rx="1" fill="#000000" stroke="#FFFFFF" strokeWidth="1.5"/>
-                {/* Filament inside bulb */}
-                <path d="M28 16V24" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M24 18L32 22" stroke="#000000" strokeWidth="1.5" strokeLinecap="round"/>
-                <path d="M32 18L24 22" stroke="#000000" strokeWidth="1.5" strokeLinecap="round"/>
-                {/* Light rays upwards and outwards */}
-                <path d="M28 8L28 4" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M20 10L16 8" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M36 10L40 8" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M18 18L14 16" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M38 18L42 16" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
-              </svg>
-            </div>
-            
-            <div className="launch-banner-icon launch-banner-icon-bottom-left">
-              <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-                {/* Dollar sign - green */}
-                <path d="M28 8C34.6274 8 40 13.3726 40 20C40 26.6274 34.6274 32 28 32C21.3726 32 16 26.6274 16 20C16 13.3726 21.3726 8 28 8Z" fill="#22C55E" stroke="#FFFFFF" strokeWidth="2.5"/>
-                <path d="M28 16V40" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round"/>
-                <path d="M28 14C30.2091 14 32 15.7909 32 18C32 20.2091 30.2091 22 28 22C25.7909 22 24 20.2091 24 18C24 15.7909 25.7909 14 28 14Z" fill="#FFFFFF"/>
-                <path d="M28 30C30.2091 30 32 31.7909 32 34C32 36.2091 30.2091 38 28 38C25.7909 38 24 36.2091 24 34C24 31.7909 25.7909 30 28 30Z" fill="#FFFFFF"/>
-              </svg>
-            </div>
-            
-            <div className="launch-banner-icon launch-banner-icon-bottom-right">
-              <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-                {/* Laptop - light blue with dark grey keyboard and screen */}
-                <rect x="10" y="14" width="36" height="26" rx="2" fill="#60A5FA" stroke="#FFFFFF" strokeWidth="2.5"/>
-                <rect x="14" y="18" width="28" height="18" rx="1" fill="#374151" stroke="#FFFFFF" strokeWidth="1.5"/>
-                <rect x="16" y="20" width="24" height="14" rx="1" fill="#FFFFFF"/>
-                {/* Shopping bag icon on screen - white with black outline */}
-                <path d="M22 24C22 22.8954 22.8954 22 24 22H32C33.1046 22 34 22.8954 34 24V28H22V24Z" fill="#FFFFFF" stroke="#000000" strokeWidth="1.5"/>
-                <path d="M20 28H36V32H20V28Z" fill="#FFFFFF" stroke="#000000" strokeWidth="1.5"/>
-                <path d="M20 32H36V34H20V32Z" fill="#FFFFFF" stroke="#000000" strokeWidth="1.5"/>
-                {/* Handles */}
-                <path d="M20 24L18 22" stroke="#000000" strokeWidth="1.5" strokeLinecap="round"/>
-                <path d="M36 24L38 22" stroke="#000000" strokeWidth="1.5" strokeLinecap="round"/>
-                {/* Keyboard */}
-                <rect x="12" y="40" width="32" height="4" rx="1" fill="#374151" stroke="#FFFFFF" strokeWidth="1"/>
-              </svg>
-            </div>
-
-            {/* Main Content */}
-            <div className="launch-banner-content">
-              <h2 className="launch-banner-heading">Ready to Launch Your Own Shop?</h2>
-              <p className="launch-banner-subheading">Start selling in minutes with our free digital storefront tools.</p>
-              <button className="launch-banner-button" onClick={handleGetStarted}>
-                Create Your Digital Shop Today
-              </button>
-            </div>
+          <div className="launch-banner-frame">
+            <img 
+              src="/images/frames/Frame 1000005329 (2).png" 
+              alt="Ready to Launch Your Own Shop" 
+              className="launch-banner-frame-image"
+            />
+            <button className="launch-banner-button" onClick={handleGetStarted}>
+              Create Your Digital Shop Today
+            </button>
           </div>
         </div>
       </section>
@@ -625,7 +619,15 @@ function App() {
           {/* Left Side - Content and Navigation */}
           <div className="testimonials-left">
             <div className="testimonials-subtitle">Testimonials</div>
-            <button className="testimonials-join-btn">Join the Community</button>
+            <a 
+              href="https://groupme.com/join_group/108744842/LQNS5QsZ" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="testimonials-join-btn"
+              style={{ textDecoration: 'none', display: 'inline-block' }}
+            >
+              Join the Community
+            </a>
             <div className="testimonials-title">
               Loved by the<br />
               community
@@ -676,8 +678,8 @@ function App() {
               {/* Quote Text */}
               <div className="testimonial-quote">
                 "Campus Hustle gave my side hustle real visibility! I've gained new clients for my tutoring service every week. It's like having my own digital storefront -made just for students!"
-              </div>
-              
+          </div>
+          
               {/* Author Information */}
               <div className="testimonial-author">
                 <div className="testimonial-avatar">
@@ -687,7 +689,7 @@ function App() {
                   <div className="testimonial-author-name">Damien Toju</div>
                   <div className="testimonial-author-title">Founder, CampusWear</div>
                 </div>
-              </div>
+            </div>
             </div>
           </div>
         </div>
@@ -698,8 +700,12 @@ function App() {
         <div className="trusted-companies-container">
           <div className="trusted-companies-content">
             <h2 className="trusted-companies-title">Trusted by companies worldwide</h2>
-            <div className="companies-logos-image">
-              <img src="/images/logos/Img4.png" alt="Trusted Companies Logos" className="trusted-companies-logos" />
+            <div className="companies-logos-carousel">
+              <div className="carousel-track">
+                <img src="/images/logos/Img4.png" alt="Trusted Companies Logos" className="trusted-companies-logos" />
+                <img src="/images/logos/Img4.png" alt="Trusted Companies Logos" className="trusted-companies-logos" />
+                <img src="/images/logos/Img4.png" alt="Trusted Companies Logos" className="trusted-companies-logos" />
+              </div>
             </div>
           </div>
         </div>
